@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Data;
 using Microsoft.Data.Sqlite;
+using System.Windows.Forms; // ДОБАВЬ ЭТУ СТРОКУ
 
 public static class DatabaseManager
 {
@@ -189,5 +191,50 @@ public static class DatabaseManager
             cmd.Parameters.AddWithValue("@passive", (double)passive);
             cmd.ExecuteNonQuery();
         }
+    }
+    public static DataTable GetLastSession(int userId)
+    {
+        // Синтаксис SQLite для получения одной последней записи
+        string query = @"
+        SELECT Cash, PassiveIncome, CurrentMonth 
+        FROM GameSessions 
+        WHERE UserID = @UserID 
+        ORDER BY SessionID DESC 
+        LIMIT 1";
+
+        SqliteParameter[] parameters = {
+        new SqliteParameter("@UserID", userId)
+    };
+
+        return ExecuteQuery(query, parameters);
+    }
+    private static DataTable ExecuteQuery(string query, SqliteParameter[] parameters)
+    {
+        DataTable table = new DataTable();
+        // Убедись, что переменная connectionString у тебя настроена на файл .db
+        using (var conn = new SqliteConnection(connString))
+        {
+            try
+            {
+                conn.Open();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    if (parameters != null)
+                    {
+                        cmd.Parameters.AddRange(parameters);
+                    }
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        table.Load(reader);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка БД: " + ex.Message);
+                return null;
+            }
+        }
+        return table;
     }
 }

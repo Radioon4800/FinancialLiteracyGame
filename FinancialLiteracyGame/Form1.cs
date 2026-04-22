@@ -37,15 +37,33 @@ namespace FinancialLiteracyGame
             diceTimer.Interval = 50;
             diceTimer.Tick += DiceTimer_Tick;
 
-            currentPlayer = new Player
+            var sessionTable = DatabaseManager.GetLastSession(1);
+
+            if (sessionTable != null && sessionTable.Rows.Count > 0)
             {
-                Name = "Алексей",
-                Profession = "Программист",
-                Salary = 50000,
-                Expenses = 30000,
-                Cash = 10000,
-                PassiveIncome = 0
-            };
+                var row = sessionTable.Rows[0];
+                currentPlayer = new Player
+                {
+                    Name = "Алексей",
+                    Profession = "Программист",
+                    Salary = 50000,
+                    Expenses = 30000,
+                    Cash = Convert.ToDecimal(row["Cash"]),
+                    PassiveIncome = Convert.ToDecimal(row["PassiveIncome"])
+                };
+            }
+            else
+            {
+                currentPlayer = new Player
+                {
+                    Name = "Алексей",
+                    Profession = "Программист",
+                    Salary = 50000,
+                    Expenses = 30000,
+                    Cash = 10000,
+                    PassiveIncome = 0
+                };
+            }
 
             financeManager = new FinanceManager(currentPlayer);
             gameEngine = new GameEngine(currentPlayer);
