@@ -8,6 +8,11 @@ namespace FinancialLiteracyGame
         private int _lastRoll = 0;
         private Player _player;
         private FinanceManager _finance;
+        public int CurrentPosition
+        {
+            get => _currentPosition;
+            set => _currentPosition = value;
+        }
         private int _currentPosition = 0;
         private Random _rnd = new Random();
 

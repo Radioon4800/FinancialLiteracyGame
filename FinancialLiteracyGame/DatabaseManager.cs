@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Data;
 using Microsoft.Data.Sqlite;
+using System.Windows.Forms; // ДОБАВЬ ЭТУ СТРОКУ
 
 public static class DatabaseManager
 {
@@ -7,6 +9,7 @@ public static class DatabaseManager
 
     public static void InitializeDatabase()
     {
+
         try
         {
             using (var conn = new SqliteConnection(connString))
@@ -27,6 +30,7 @@ public static class DatabaseManager
                     session_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     player_id INTEGER,
                     current_month INTEGER DEFAULT 1,
+                    current_cell INTEGER DEFAULT 0,
                     cash_balance REAL,
                     passive_income REAL,
                     status TEXT,
@@ -58,7 +62,31 @@ public static class DatabaseManager
                 {
                     cmd.ExecuteNonQuery();
                 }
+                // 2. ПРОВЕРЯЕМ И ДОБАВЛЯЕМ КОЛОНКУ (безопасный способ)
+                bool hasCellColumn = false;
+                using (var checkCmd = new SqliteCommand("PRAGMA table_info(GameSession);", conn))
+                {
+                    using (var reader = checkCmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            // reader["name"] — это имя колонки в таблице GameSession
+                            if (reader["name"].ToString() == "current_cell")
+                            {
+                                hasCellColumn = true;
+                                break;
+                            }
+                        }
+                    }
+                }
 
+                if (!hasCellColumn)
+                {
+                    using (var alterCmd = new SqliteCommand("ALTER TABLE GameSession ADD COLUMN current_cell INTEGER DEFAULT 0;", conn))
+                    {
+                        alterCmd.ExecuteNonQuery();
+                    }
+                }
                 // 2. ТЕПЕРЬ проверяем и добавляем колонку type, если её нет
                 try
                 {
@@ -189,5 +217,51 @@ public static class DatabaseManager
             cmd.Parameters.AddWithValue("@passive", (double)passive);
             cmd.ExecuteNonQuery();
         }
+    }
+    public static DataTable GetLastSession(int playerId)
+    {
+        // 1. Исправлено имя таблицы на GameSession
+        // 2. Исправлены имена столбцов на те, что в твоем SQL (cash_balance, passive_income)
+        string query = @"
+        SELECT cash_balance, passive_income, current_month 
+        FROM GameSession 
+        WHERE player_id = @PlayerID 
+        ORDER BY session_id DESC 
+        LIMIT 1";
+
+        SqliteParameter[] parameters = {
+        new SqliteParameter("@PlayerID", playerId)
+    };
+
+        return ExecuteQuery(query, parameters);
+    }
+    private static DataTable ExecuteQuery(string query, SqliteParameter[] parameters)
+    {
+        DataTable table = new DataTable();
+        // Убедись, что переменная connectionString у тебя настроена на файл .db
+        using (var conn = new SqliteConnection(connString))
+        {
+            try
+            {
+                conn.Open();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    if (parameters != null)
+                    {
+                        cmd.Parameters.AddRange(parameters);
+                    }
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        table.Load(reader);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка БД: " + ex.Message);
+                return null;
+            }
+        }
+        return table;
     }
 }

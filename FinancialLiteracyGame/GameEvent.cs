@@ -7,14 +7,12 @@ namespace FinancialLiteracyGame
     {
         public string Title { get; protected set; }
         public string Description { get; protected set; }
-        public string EducationalNote { get; protected set; } // Добавили поле
+        public string EducationalNote { get; protected set; }
         public abstract string EventType { get; }
-
         public decimal BalanceEffect { get; protected set; }
         public decimal IncomeEffect { get; protected set; }
-
+        public int CurrentPosition { get; set; } = 0;
         public abstract void Execute(Player player, FinanceManager finance);
-
         public void SaveToHistory(int sessionId, int currentMonth)
         {
             DatabaseManager.LogRandomEvent(
