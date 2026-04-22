@@ -5,19 +5,27 @@ using System.Windows.Forms; // ДОБАВЬ ЭТУ СТРОКУ
 
 public static class DatabaseManager
 {
-    private static string connString = "Data Source=game_data.db";
+    // В классе DatabaseManager замените строку подключения:
+    private static string connString = $"Data Source={AppDomain.CurrentDomain.BaseDirectory}game_data.db";
 
     public static void InitializeDatabase()
     {
-
         try
         {
+            // 1. Гарантируем, что файл базы данных будет создан по правильному пути
             using (var conn = new SqliteConnection(connString))
             {
                 conn.Open();
 
-                // 1. Сначала создаем все таблицы в их базовом виде
-                string createTablesSql = @"
+                // 2. Включаем поддержку внешних ключей (в SQLite она отключена по умолчанию)
+                using (var pragmaCmd = new SqliteCommand("PRAGMA foreign_keys = ON;", conn))
+                {
+                    pragmaCmd.ExecuteNonQuery();
+                }
+
+                // 3. Создаем структуру таблиц одним блоком
+                // Это гарантирует, что если база создалась, то в ней будут все нужные таблицы
+                string sql = @"
                 CREATE TABLE IF NOT EXISTS Player (
                     player_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -26,17 +34,17 @@ public static class DatabaseManager
                     monthly_expenses REAL
                 );
 
-
                 CREATE TABLE IF NOT EXISTS GameSession (
                     session_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     player_id INTEGER,
                     current_month INTEGER DEFAULT 1,
                     current_cell INTEGER DEFAULT 0,
+                    steps_to_salary INTEGER DEFAULT 30,
                     cash_balance REAL,
                     passive_income REAL,
-                    status TEXT,
+                    status TEXT DEFAULT 'Active',
                     last_saved TEXT,
-                    FOREIGN KEY(player_id) REFERENCES Player(player_id)
+                    FOREIGN KEY(player_id) REFERENCES Player(player_id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS Insurance (
@@ -45,81 +53,42 @@ public static class DatabaseManager
                     type TEXT,
                     cost_per_month REAL,
                     is_active INTEGER,
-                    FOREIGN KEY(session_id) REFERENCES GameSession(session_id)
+                    FOREIGN KEY(session_id) REFERENCES GameSession(session_id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS RandomEvent (
                     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_id INTEGER,
                     month INTEGER,
+                    type TEXT,
                     title TEXT,
                     effect_balance REAL,
                     effect_income REAL,
                     is_applied INTEGER,
-                    FOREIGN KEY(session_id) REFERENCES GameSession(session_id)
+                    FOREIGN KEY(session_id) REFERENCES GameSession(session_id) ON DELETE CASCADE
                 );";
 
-                using (var cmd = new SqliteCommand(createTablesSql, conn))
+                using (var cmd = new SqliteCommand(sql, conn))
                 {
                     cmd.ExecuteNonQuery();
                 }
-                // 2. ПРОВЕРЯЕМ И ДОБАВЛЯЕМ КОЛОНКУ (безопасный способ)
-                bool hasCellColumn = false;
-                using (var checkCmd = new SqliteCommand("PRAGMA table_info(GameSession);", conn))
-                {
-                    using (var reader = checkCmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            // reader["name"] — это имя колонки в таблице GameSession
-                            if (reader["name"].ToString() == "current_cell")
-                            {
-                                hasCellColumn = true;
-                                break;
-                            }
-                        }
-                    }
-                }
 
-                if (!hasCellColumn)
+                // 4. Финальная проверка: действительно ли таблица появилась в системном реестре SQLite
+                using (var checkCmd = new SqliteCommand("SELECT name FROM sqlite_master WHERE type='table' AND name='GameSession';", conn))
                 {
-                    using (var alterCmd = new SqliteCommand("ALTER TABLE GameSession ADD COLUMN current_cell INTEGER DEFAULT 0;", conn))
+                    var result = checkCmd.ExecuteScalar();
+                    if (result == null)
                     {
-                        alterCmd.ExecuteNonQuery();
+                        throw new Exception("База данных создана, но таблица 'GameSession' отсутствует. Проверьте права доступа к папке.");
                     }
-                }
-                // 2. ТЕПЕРЬ проверяем и добавляем колонку type, если её нет
-                try
-                {
-                    using (var checkCmd = new SqliteCommand("SELECT type FROM RandomEvent LIMIT 1;", conn))
-                    {
-                        checkCmd.ExecuteReader().Close();
-                    }
-                }
-                catch
-                {
-                    using (var alterCmd = new SqliteCommand("ALTER TABLE RandomEvent ADD COLUMN type TEXT;", conn))
-                    {
-                        alterCmd.ExecuteNonQuery();
-                    }
-                }
-
-                // 3. Включаем ключи и создаем игрока
-                using (var pragmaCmd = new SqliteCommand("PRAGMA foreign_keys = ON;", conn))
-                {
-                    pragmaCmd.ExecuteNonQuery();
-                }
-
-                string checkPlayer = "INSERT OR IGNORE INTO Player (player_id, name, profession, monthly_salary, monthly_expenses) VALUES (1, 'Алексей', 'Программист', 50000, 30000);";
-                using (var playerCmd = new SqliteCommand(checkPlayer, conn))
-                {
-                    playerCmd.ExecuteNonQuery();
                 }
             }
         }
         catch (Exception ex)
         {
-            System.Windows.Forms.MessageBox.Show("Ошибка инициализации БД: " + ex.Message);
+            // Выводим подробную ошибку, чтобы понять причину (права доступа, синтаксис и т.д.)
+            MessageBox.Show("Критическая ошибка при инициализации базы данных:\n\n" + ex.Message,
+                            "Ошибка БД", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -177,23 +146,28 @@ public static class DatabaseManager
         }
     }
 
-    public static void SaveSession(int playerId, decimal cash, decimal passive, int month, int cell)
+    public static void SaveSession(int playerId, decimal cash, decimal passiveIncome, int month, int cell, int steps)
     {
         using (var conn = new SqliteConnection(connString))
         {
             conn.Open();
-            // Используем INSERT, так как мы создаем записи истории или обновляем состояние
-            string sql = @"INSERT INTO GameSession (player_id, cash_balance, passive_income, current_month, current_cell, last_saved) 
-                       VALUES (@pid, @cash, @pass, @month, @cell, @date)";
+            string sql = @"
+            UPDATE GameSession 
+            SET cash_balance = @cash, 
+                passive_income = @pi, 
+                current_month = @month, 
+                current_cell = @cell,
+                steps_to_salary = @steps
+            WHERE player_id = @pid";
 
             using (var cmd = new SqliteCommand(sql, conn))
             {
-                cmd.Parameters.AddWithValue("@pid", playerId);
                 cmd.Parameters.AddWithValue("@cash", (double)cash);
-                cmd.Parameters.AddWithValue("@pass", (double)passive);
+                cmd.Parameters.AddWithValue("@pi", (double)passiveIncome);
                 cmd.Parameters.AddWithValue("@month", month);
                 cmd.Parameters.AddWithValue("@cell", cell);
-                cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                cmd.Parameters.AddWithValue("@steps", steps);
+                cmd.Parameters.AddWithValue("@pid", playerId);
                 cmd.ExecuteNonQuery();
             }
         }
@@ -208,19 +182,34 @@ public static class DatabaseManager
             {
                 try
                 {
-                    // В будущем здесь будет логика выбора ID профиля, пока работаем с ID = 1
+                    // 1. СНАЧАЛА проверяем/создаем игрока (UPSERT)
+                    // Если игрока с таким ID нет, INSERT его. Если есть — UPDATE.
+                    string playerSql = @"
+                    INSERT OR REPLACE INTO Player (player_id, name, profession, monthly_salary, monthly_expenses)
+                    VALUES (@pid, @name, @prof, @sal, @exp);";
 
-                    // 1. Очищаем старые события (опционально, если хотим полную очистку)
-                    string clearEvents = "DELETE FROM RandomEvent WHERE session_id IN (SELECT session_id FROM GameSession WHERE player_id = @pid)";
-                    using (var cmd = new SqliteCommand(clearEvents, conn, transaction))
+                    using (var pCmd = new SqliteCommand(playerSql, conn, transaction))
                     {
-                        cmd.Parameters.AddWithValue("@pid", playerId);
-                        cmd.ExecuteNonQuery();
+                        pCmd.Parameters.AddWithValue("@pid", playerId);
+                        pCmd.Parameters.AddWithValue("@name", name);
+                        pCmd.Parameters.AddWithValue("@prof", profession);
+                        pCmd.Parameters.AddWithValue("@sal", (double)salary);
+                        pCmd.Parameters.AddWithValue("@exp", (double)expenses);
+                        pCmd.ExecuteNonQuery();
                     }
 
-                    // 2. Создаем новую стартовую запись сессии
-                    string sql = @"INSERT INTO GameSession (player_id, cash_balance, passive_income, current_month, current_cell, last_saved) 
-                               VALUES (@pid, @cash, 0, 1, 0, @date)";
+                    // 2. Теперь удаляем старую сессию (если была)
+                    string deleteSession = "DELETE FROM GameSession WHERE player_id = @pid";
+                    using (var dCmd = new SqliteCommand(deleteSession, conn, transaction))
+                    {
+                        dCmd.Parameters.AddWithValue("@pid", playerId);
+                        dCmd.ExecuteNonQuery();
+                    }
+
+                    // 3. ТЕПЕРЬ создаем новую сессию. Ошибки FOREIGN KEY не будет, 
+                    // так как Player с этим ID точно существует после шага 1.
+                    string sql = @"INSERT INTO GameSession (player_id, cash_balance, passive_income, current_month, current_cell, last_saved, status) 
+                               VALUES (@pid, @cash, 0, 1, 0, @date, 'Active')";
 
                     using (var cmd = new SqliteCommand(sql, conn, transaction))
                     {
@@ -232,7 +221,11 @@ public static class DatabaseManager
 
                     transaction.Commit();
                 }
-                catch { transaction.Rollback(); throw; }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    MessageBox.Show("Ошибка при создании сессии: " + ex.Message);
+                }
             }
         }
     }
@@ -284,5 +277,24 @@ public static class DatabaseManager
             }
         }
         return table;
+    }
+
+    public static DataTable GetPlayer(int playerId)
+    {
+        using (var conn = new SqliteConnection(connString))
+        {
+            conn.Open();
+            string sql = "SELECT * FROM Player WHERE player_id = @pid";
+            using (var cmd = new SqliteCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@pid", playerId);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    var dt = new DataTable();
+                    dt.Load(reader);
+                    return dt;
+                }
+            }
+        }
     }
 }

@@ -8,6 +8,7 @@ namespace FinancialLiteracyGame
 {
     internal static class Program
     {
+
         /// <summary>
         /// Главная точка входа для приложения.
         /// </summary>
@@ -16,7 +17,9 @@ namespace FinancialLiteracyGame
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            DatabaseManager.InitializeDatabase();
             Application.Run(new MainMenuForm());
+            
         }
     }
 }

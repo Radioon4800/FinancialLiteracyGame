@@ -33,14 +33,19 @@
             this.panel = new System.Windows.Forms.Panel();
             this.lblDiceResult = new System.Windows.Forms.Label();
             this.Action = new System.Windows.Forms.Panel();
+            this.btnNewGame_Click = new System.Windows.Forms.Button();
             this.button3 = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
             this.button1 = new System.Windows.Forms.Button();
             this.LeftSide = new System.Windows.Forms.Panel();
-            this.btnNewGame_Click = new System.Windows.Forms.Button();
+            this.panel1 = new System.Windows.Forms.Panel();
+            this.lblNetIncome = new System.Windows.Forms.Label();
+            this.lblDebt = new System.Windows.Forms.Label();
+            this.lblMessage = new System.Windows.Forms.Label();
             this.panel.SuspendLayout();
             this.Action.SuspendLayout();
             this.LeftSide.SuspendLayout();
+            this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
             // gbStats
@@ -48,23 +53,25 @@
             this.gbStats.Dock = System.Windows.Forms.DockStyle.Top;
             this.gbStats.Location = new System.Drawing.Point(0, 0);
             this.gbStats.Name = "gbStats";
-            this.gbStats.Size = new System.Drawing.Size(214, 205);
+            this.gbStats.Size = new System.Drawing.Size(214, 252);
             this.gbStats.TabIndex = 0;
             this.gbStats.TabStop = false;
             this.gbStats.Text = "Статистика";
+            this.gbStats.Enter += new System.EventHandler(this.gbStats_Enter);
             // 
             // gbProfession
             // 
             this.gbProfession.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.gbProfession.Location = new System.Drawing.Point(0, 208);
+            this.gbProfession.Location = new System.Drawing.Point(0, 258);
             this.gbProfession.Name = "gbProfession";
-            this.gbProfession.Size = new System.Drawing.Size(214, 124);
+            this.gbProfession.Size = new System.Drawing.Size(214, 74);
             this.gbProfession.TabIndex = 1;
             this.gbProfession.TabStop = false;
             this.gbProfession.Text = "Профессия";
             // 
             // panel
             // 
+            this.panel.Controls.Add(this.panel1);
             this.panel.Controls.Add(this.lblDiceResult);
             this.panel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel.Location = new System.Drawing.Point(0, 0);
@@ -97,6 +104,18 @@
             this.Action.Size = new System.Drawing.Size(1064, 100);
             this.Action.TabIndex = 0;
             // 
+            // btnNewGame_Click
+            // 
+            this.btnNewGame_Click.AutoSize = true;
+            this.btnNewGame_Click.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnNewGame_Click.Location = new System.Drawing.Point(797, 0);
+            this.btnNewGame_Click.Name = "btnNewGame_Click";
+            this.btnNewGame_Click.Size = new System.Drawing.Size(264, 96);
+            this.btnNewGame_Click.TabIndex = 3;
+            this.btnNewGame_Click.Text = "Новая игра";
+            this.btnNewGame_Click.UseVisualStyleBackColor = true;
+            this.btnNewGame_Click.Click += new System.EventHandler(this.btnNewGame_Click_Click);
+            // 
             // button3
             // 
             this.button3.AutoSize = true;
@@ -107,6 +126,7 @@
             this.button3.TabIndex = 2;
             this.button3.Text = "Взять кредит";
             this.button3.UseVisualStyleBackColor = true;
+            this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
             // button2
             // 
@@ -118,6 +138,7 @@
             this.button2.TabIndex = 1;
             this.button2.Text = "Купить актив";
             this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
             // 
             // button1
             // 
@@ -140,17 +161,41 @@
             this.LeftSide.Size = new System.Drawing.Size(214, 332);
             this.LeftSide.TabIndex = 3;
             // 
-            // btnNewGame_Click
+            // panel1
             // 
-            this.btnNewGame_Click.AutoSize = true;
-            this.btnNewGame_Click.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnNewGame_Click.Location = new System.Drawing.Point(797, 0);
-            this.btnNewGame_Click.Name = "btnNewGame_Click";
-            this.btnNewGame_Click.Size = new System.Drawing.Size(264, 96);
-            this.btnNewGame_Click.TabIndex = 3;
-            this.btnNewGame_Click.Text = "Новая игра";
-            this.btnNewGame_Click.UseVisualStyleBackColor = true;
-            this.btnNewGame_Click.Click += new System.EventHandler(this.btnNewGame_Click_Click);
+            this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.panel1.Controls.Add(this.lblMessage);
+            this.panel1.Controls.Add(this.lblDebt);
+            this.panel1.Controls.Add(this.lblNetIncome);
+            this.panel1.Location = new System.Drawing.Point(883, 0);
+            this.panel1.Name = "panel1";
+            this.panel1.Size = new System.Drawing.Size(180, 244);
+            this.panel1.TabIndex = 1;
+            // 
+            // lblNetIncome
+            // 
+            this.lblNetIncome.AutoSize = true;
+            this.lblNetIncome.Location = new System.Drawing.Point(9, 35);
+            this.lblNetIncome.Name = "lblNetIncome";
+            this.lblNetIncome.Size = new System.Drawing.Size(0, 13);
+            this.lblNetIncome.TabIndex = 0;
+            // 
+            // lblDebt
+            // 
+            this.lblDebt.AutoSize = true;
+            this.lblDebt.Location = new System.Drawing.Point(9, 63);
+            this.lblDebt.Name = "lblDebt";
+            this.lblDebt.Size = new System.Drawing.Size(0, 13);
+            this.lblDebt.TabIndex = 1;
+            // 
+            // lblMessage
+            // 
+            this.lblMessage.AutoSize = true;
+            this.lblMessage.Location = new System.Drawing.Point(3, 63);
+            this.lblMessage.Name = "lblMessage";
+            this.lblMessage.Size = new System.Drawing.Size(0, 13);
+            this.lblMessage.TabIndex = 2;
             // 
             // Form1
             // 
@@ -161,12 +206,14 @@
             this.Controls.Add(this.LeftSide);
             this.Controls.Add(this.panel);
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "Финансовая грамотность";
             this.panel.ResumeLayout(false);
             this.panel.PerformLayout();
             this.Action.ResumeLayout(false);
             this.Action.PerformLayout();
             this.LeftSide.ResumeLayout(false);
+            this.panel1.ResumeLayout(false);
+            this.panel1.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -183,6 +230,10 @@
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Label lblDiceResult;
         private System.Windows.Forms.Button btnNewGame_Click;
+        private System.Windows.Forms.Panel panel1;
+        private System.Windows.Forms.Label lblMessage;
+        private System.Windows.Forms.Label lblDebt;
+        private System.Windows.Forms.Label lblNetIncome;
     }
 }
 

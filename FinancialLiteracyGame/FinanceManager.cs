@@ -23,8 +23,9 @@ namespace FinancialLiteracyGame
         // Логика "Дня зарплаты"
         public void ProcessPayDay()
         {
-            decimal netProfit = GetMonthlyCashflow();
-            _player.Cash += netProfit;
+            // Внутри этого класса методы и игрока (через _player) видно
+            decimal income = GetMonthlyCashflow();
+            _player.Cash += income;
         }
 
         // Обработка непредвиденного расхода
@@ -57,6 +58,15 @@ namespace FinancialLiteracyGame
         public bool IsFinancialIndependent()
         {
             return _player.PassiveIncome >= (_player.Expenses * 1.2m);
+        }
+        public string GetBudgetAnalysis(Player p)
+        {
+            decimal totalIncome = p.Salary + p.PassiveIncome;
+            decimal needsPercent = (p.Expenses / totalIncome) * 100;
+
+            if (needsPercent > 50)
+                return "Внимание: Расходы на нужды превышают 50% дохода! Сократите траты.";
+            return "Бюджет в норме. Вы следуете правилу 50/30/20.";
         }
     }
 }

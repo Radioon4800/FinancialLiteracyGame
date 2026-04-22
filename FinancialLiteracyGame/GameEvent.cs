@@ -34,49 +34,59 @@ namespace FinancialLiteracyGame
 
     public class RiskEvent : GameEvent
     {
-        public override string EventType => "Risk"; // Реализация абстрактного члена
+        public override string EventType => "Risk";
+        public string Category { get; private set; } // Для хранения "Медицина", "Имущество" и т.д.
+        public bool IsInsurable { get; private set; }
 
-        public RiskEvent(string title, string desc, decimal amount, string insurance, string note)
+        // Обновленный конструктор
+        public RiskEvent(string title, string desc, decimal amount, string category, string note, bool isInsurable = true)
         {
             Title = title;
             Description = desc;
             BalanceEffect = -amount;
-            IncomeEffect = 0;
-            EducationalNote = note; // Теперь ошибка исчезнет
+            Category = category; // Теперь строка сохраняется здесь
+            EducationalNote = note;
+            IsInsurable = isInsurable; // А здесь получаем bool
         }
 
-        public override void Execute(Player player, FinanceManager finance)
-        {
-            finance.ApplyExpense(-BalanceEffect);
-        }
-    }
-
-    public class MarketEvent : GameEvent
-    {
-        public override string EventType => "Market"; // Реализация абстрактного члена
-
-        public MarketEvent(string title, string desc, decimal cost, decimal bonus, string note)
+        public RiskEvent(string title, string desc, decimal amount, string note, bool isInsurable = true)
         {
             Title = title;
             Description = desc;
-            BalanceEffect = -cost;
-            IncomeEffect = bonus;
+            BalanceEffect = -amount;
             EducationalNote = note;
+            IsInsurable = isInsurable;
         }
 
         public override void Execute(Player player, FinanceManager finance)
         {
-            decimal cost = Math.Abs(BalanceEffect);
-
-            bool success = finance.BuyAsset(cost, IncomeEffect);
-
-            if (success)
+            if (player.IsInsured && IsInsurable)
             {
-                MessageBox.Show($"Инвестиция оформлена!\nДоход в месяц: +{IncomeEffect} руб.", "Рынок");
+                // Если застрахован, игрок теряет, например, только 10% от суммы (франшиза)
+                decimal reducedLoss = BalanceEffect * 0.1m;
+                player.Cash += reducedLoss;
+
+                MessageBox.Show(
+                    $"Вас спасла страховка!\nВместо {-BalanceEffect:N0} руб. вы потеряли всего {-reducedLoss:N0} руб.",
+                    "Работает страховой полис",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
             }
             else
             {
-                MessageBox.Show("Не хватает наличных!", "Внимание");
+                // Полная потеря
+                player.Cash += BalanceEffect;
+
+                if (IsInsurable)
+                {
+                    MessageBox.Show(
+                        "У вас не было страховки, поэтому пришлось оплатить ущерб полностью.",
+                        "Урок финансовой грамотности",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                }
             }
         }
     }

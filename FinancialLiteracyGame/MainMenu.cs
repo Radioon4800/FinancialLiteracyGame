@@ -30,18 +30,33 @@ namespace FinancialLiteracyGame
 
         private void btnNewGame_Click(object sender, EventArgs e)
         {
-            var result = MessageBox.Show(
-                "Начать новую игру? Прогресс в текущем слоте будет перезаписан.",
-                "Новая игра",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-
-            if (result == DialogResult.Yes)
+            using (ProfessionForm profForm = new ProfessionForm())
             {
-                // Создаем новую запись в БД через транзакцию
-                // В будущем параметры (имя, профессия) будут приходить из формы создания персонажа
-                DatabaseManager.CreateNewSession(1, "Алексей", "Программист", 50000, 30000, 10000);
-                LaunchGame();
+                // 1. Показываем форму выбора персонажа
+                if (profForm.ShowDialog() == DialogResult.OK)
+                {
+                    Player newPlayer = profForm.SelectedPlayer;
+
+                    // 2. Создаем новую запись в БД (обнуляем старый прогресс для ID 1)
+                    DatabaseManager.CreateNewSession(
+                        1,
+                        newPlayer.Name,
+                        newPlayer.Profession,
+                        newPlayer.Salary,
+                        newPlayer.Expenses,
+                        newPlayer.Cash
+                    );
+
+                    // 3. Запускаем основную форму игры
+                    Form1 gameForm = new Form1();
+                    gameForm.Show();
+
+                    // Скрываем меню
+                    this.Hide();
+
+                    // Подписываемся на закрытие игры, чтобы вернуть меню или закрыть всё
+                    gameForm.FormClosed += (s, args) => this.Close();
+                }
             }
         }
 
