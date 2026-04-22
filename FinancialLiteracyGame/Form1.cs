@@ -7,6 +7,7 @@ namespace FinancialLiteracyGame
 {
     public partial class Form1 : Form
     {
+        private int stepsToPayDay = 30;
         private System.Windows.Forms.Timer diceTimer;
         private int animationTicks = 0;
         private Random rnd = new Random(); // Добавили генератор для анимации
@@ -129,12 +130,23 @@ namespace FinancialLiteracyGame
 
         private void HandlePlayerMove(int cellIndex)
         {
-            // Получаем ID сессии. 1 — это ID игрока (в будущем заменим на переменную)
             int sessionId = DatabaseManager.GetCurrentSessionId(1);
-
-            // В идеале месяц должен храниться в поле класса Form1 (например, private int currentMonth)
-            // Но если пока нет, берем 1.
             int month = 1;
+
+            // --- ЛОГИКА СЧЕТЧИКА ЗАРПЛАТЫ ---
+            stepsToPayDay--; // Уменьшаем счетчик при каждом шаге
+
+            if (stepsToPayDay <= 0)
+            {
+                financeManager.ProcessPayDay();
+                DatabaseManager.LogRandomEvent(sessionId, month, "Income", "Зарплата", financeManager.GetMonthlyCashflow(), 0);
+
+                MessageBox.Show($"ДЕНЬ ЗАРПЛАТЫ!\nЧистый доход: {financeManager.GetMonthlyCashflow()} руб.\n" +
+                                $"Следующая зарплата через 30 ходов.", "Фин. отчет");
+
+                stepsToPayDay = 30; // Сбрасываем счетчик обратно
+            }
+            // --------------------------------
 
             if (sessionId == 0)
             {
@@ -142,45 +154,34 @@ namespace FinancialLiteracyGame
                 sessionId = DatabaseManager.GetCurrentSessionId(1);
             }
 
+            // Теперь события генерируются ВСЕГДА, независимо от зарплаты
             GameEvent ev = gameEngine.GenerateEvent(cellIndex);
 
             if (ev != null)
             {
                 using (EventForm eventWindow = new EventForm(ev))
                 {
-                    // Для RiskEvent выполняем всегда, для остальных (MarketEvent) — если нажали OK (купили)
                     if (eventWindow.ShowDialog() == DialogResult.OK || ev is RiskEvent)
                     {
-                        // Выполняем логику (включая BuyAsset, который мы починили в FinanceManager)
                         ev.Execute(currentPlayer, financeManager);
                         ev.SaveToHistory(sessionId, month);
                     }
                 }
             }
-            else
-            {
-                // Логика клетки "Зарплата"
-                financeManager.ProcessPayDay();
-                DatabaseManager.LogRandomEvent(sessionId, month, "Income", "Зарплата", financeManager.GetMonthlyCashflow(), 0);
-                MessageBox.Show($"ДЕНЬ ЗАРПЛАТЫ!\nВаш чистый доход: {financeManager.GetMonthlyCashflow()} руб.\n" +
-                                $"Теперь ваш баланс: {currentPlayer.Cash} руб.", "Фин. отчет");
-            }
 
-            // Обновляем UI, чтобы игрок сразу видел изменения в Cash и PassiveIncome
+            // ВАЖНО: Удаляем блок else, который был здесь раньше, 
+            // так как зарплата теперь привязана к шагам, а не к пустой клетке.
+
             UpdateUI();
 
-            // Проверка на банкротство
+            // Проверка на банкротство и сохранение
             if (currentPlayer.Cash < -10000)
             {
                 button1.Enabled = false;
-                this.KeyDown -= Form1_KeyDown;
-
-                // Сохраняем финальное состояние банкротства
                 DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month, cellIndex);
                 return;
             }
 
-            // Одиночное финальное сохранение для "живого" игрока
             DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month, cellIndex);
         }
 
