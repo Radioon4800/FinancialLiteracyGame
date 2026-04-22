@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace FinancialLiteracyGame
 {
@@ -38,12 +39,14 @@ namespace FinancialLiteracyGame
         }
 
         // Покупка актива (например, акций)
-        public bool BuyAsset(decimal cost, decimal addedPassiveIncome)
+        // Проверь, чтобы параметры в скобках назывались именно так
+        public bool BuyAsset(decimal cost, decimal bonus)
         {
+            // Проверяем, хватает ли наличных (Cash)
             if (_player.Cash >= cost)
             {
-                _player.Cash -= cost;
-                _player.PassiveIncome += addedPassiveIncome;
+                _player.Cash -= cost;           // Вычитаем стоимость
+                _player.PassiveIncome += bonus; // Увеличиваем пассивный доход!
                 return true;
             }
             return false;

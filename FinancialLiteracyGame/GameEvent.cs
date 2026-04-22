@@ -66,11 +66,18 @@ namespace FinancialLiteracyGame
 
         public override void Execute(Player player, FinanceManager finance)
         {
-            bool success = finance.BuyAsset(-BalanceEffect, IncomeEffect);
+            decimal cost = Math.Abs(BalanceEffect);
+
+            bool success = finance.BuyAsset(cost, IncomeEffect);
+
             if (success)
-                MessageBox.Show($"Успешная инвестиция! Доход: +{IncomeEffect}", "Рынок");
+            {
+                MessageBox.Show($"Инвестиция оформлена!\nДоход в месяц: +{IncomeEffect} руб.", "Рынок");
+            }
             else
-                MessageBox.Show("Недостаточно средств!", "Внимание");
+            {
+                MessageBox.Show("Не хватает наличных!", "Внимание");
+            }
         }
     }
 }

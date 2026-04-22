@@ -26,6 +26,7 @@ public static class DatabaseManager
                     monthly_expenses REAL
                 );
 
+
                 CREATE TABLE IF NOT EXISTS GameSession (
                     session_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     player_id INTEGER,
@@ -176,64 +177,84 @@ public static class DatabaseManager
         }
     }
 
-    public static void SaveSession(int playerId, decimal cash, decimal passiveIncome, int month)
+    public static void SaveSession(int playerId, decimal cash, decimal passive, int month, int cell)
     {
         using (var conn = new SqliteConnection(connString))
         {
             conn.Open();
-            using (var pragmaCmd = new SqliteCommand("PRAGMA foreign_keys = ON;", conn)) { pragmaCmd.ExecuteNonQuery(); }
-
-            string sql = @"UPDATE GameSession 
-                           SET cash_balance = @cash, 
-                               passive_income = @passive, 
-                               current_month = @month, 
-                               last_saved = @time 
-                           WHERE player_id = @pid AND status = 'Active'";
+            // Используем INSERT, так как мы создаем записи истории или обновляем состояние
+            string sql = @"INSERT INTO GameSession (player_id, cash_balance, passive_income, current_month, current_cell, last_saved) 
+                       VALUES (@pid, @cash, @pass, @month, @cell, @date)";
 
             using (var cmd = new SqliteCommand(sql, conn))
             {
-                cmd.Parameters.AddWithValue("@cash", (double)cash);
-                cmd.Parameters.AddWithValue("@passive", (double)passiveIncome);
-                cmd.Parameters.AddWithValue("@month", month);
-                cmd.Parameters.AddWithValue("@time", DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
                 cmd.Parameters.AddWithValue("@pid", playerId);
-
-                if (cmd.ExecuteNonQuery() == 0)
-                {
-                    CreateNewSession(playerId, cash, passiveIncome, conn);
-                }
+                cmd.Parameters.AddWithValue("@cash", (double)cash);
+                cmd.Parameters.AddWithValue("@pass", (double)passive);
+                cmd.Parameters.AddWithValue("@month", month);
+                cmd.Parameters.AddWithValue("@cell", cell);
+                cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                cmd.ExecuteNonQuery();
             }
         }
     }
 
-    private static void CreateNewSession(int playerId, decimal cash, decimal passive, SqliteConnection conn)
+    public static void CreateNewSession(int playerId, string name, string profession, decimal salary, decimal expenses, decimal startCash)
     {
-        string sql = @"INSERT INTO GameSession (player_id, cash_balance, passive_income, status, current_month) 
-                       VALUES (@pid, @cash, @passive, 'Active', 1)";
-        using (var cmd = new SqliteCommand(sql, conn))
+        using (var conn = new SqliteConnection(connString))
         {
-            cmd.Parameters.AddWithValue("@pid", playerId);
-            cmd.Parameters.AddWithValue("@cash", (double)cash);
-            cmd.Parameters.AddWithValue("@passive", (double)passive);
-            cmd.ExecuteNonQuery();
+            conn.Open();
+            using (var transaction = conn.BeginTransaction())
+            {
+                try
+                {
+                    // В будущем здесь будет логика выбора ID профиля, пока работаем с ID = 1
+
+                    // 1. Очищаем старые события (опционально, если хотим полную очистку)
+                    string clearEvents = "DELETE FROM RandomEvent WHERE session_id IN (SELECT session_id FROM GameSession WHERE player_id = @pid)";
+                    using (var cmd = new SqliteCommand(clearEvents, conn, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@pid", playerId);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    // 2. Создаем новую стартовую запись сессии
+                    string sql = @"INSERT INTO GameSession (player_id, cash_balance, passive_income, current_month, current_cell, last_saved) 
+                               VALUES (@pid, @cash, 0, 1, 0, @date)";
+
+                    using (var cmd = new SqliteCommand(sql, conn, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@pid", playerId);
+                        cmd.Parameters.AddWithValue("@cash", (double)startCash);
+                        cmd.Parameters.AddWithValue("@date", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    transaction.Commit();
+                }
+                catch { transaction.Rollback(); throw; }
+            }
         }
     }
+
     public static DataTable GetLastSession(int playerId)
     {
-        // 1. Исправлено имя таблицы на GameSession
-        // 2. Исправлены имена столбцов на те, что в твоем SQL (cash_balance, passive_income)
-        string query = @"
-        SELECT cash_balance, passive_income, current_month 
-        FROM GameSession 
-        WHERE player_id = @PlayerID 
-        ORDER BY session_id DESC 
-        LIMIT 1";
-
-        SqliteParameter[] parameters = {
-        new SqliteParameter("@PlayerID", playerId)
-    };
-
-        return ExecuteQuery(query, parameters);
+        using (var conn = new SqliteConnection(connString))
+        {
+            conn.Open();
+            // Убедитесь, что имена колонок в SELECT совпадают с теми, что в CREATE TABLE
+            string sql = "SELECT * FROM GameSession WHERE player_id = @pid ORDER BY session_id DESC LIMIT 1";
+            using (var cmd = new SqliteCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@pid", playerId);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    var dt = new DataTable();
+                    dt.Load(reader);
+                    return dt;
+                }
+            }
+        }
     }
     private static DataTable ExecuteQuery(string query, SqliteParameter[] parameters)
     {

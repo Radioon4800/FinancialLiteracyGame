@@ -129,12 +129,16 @@ namespace FinancialLiteracyGame
 
         private void HandlePlayerMove(int cellIndex)
         {
+            // Получаем ID сессии. 1 — это ID игрока (в будущем заменим на переменную)
             int sessionId = DatabaseManager.GetCurrentSessionId(1);
+
+            // В идеале месяц должен храниться в поле класса Form1 (например, private int currentMonth)
+            // Но если пока нет, берем 1.
             int month = 1;
 
             if (sessionId == 0)
             {
-                DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month);
+                DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month, cellIndex);
                 sessionId = DatabaseManager.GetCurrentSessionId(1);
             }
 
@@ -144,8 +148,10 @@ namespace FinancialLiteracyGame
             {
                 using (EventForm eventWindow = new EventForm(ev))
                 {
+                    // Для RiskEvent выполняем всегда, для остальных (MarketEvent) — если нажали OK (купили)
                     if (eventWindow.ShowDialog() == DialogResult.OK || ev is RiskEvent)
                     {
+                        // Выполняем логику (включая BuyAsset, который мы починили в FinanceManager)
                         ev.Execute(currentPlayer, financeManager);
                         ev.SaveToHistory(sessionId, month);
                     }
@@ -153,13 +159,29 @@ namespace FinancialLiteracyGame
             }
             else
             {
+                // Логика клетки "Зарплата"
                 financeManager.ProcessPayDay();
-                DatabaseManager.LogRandomEvent(sessionId, month, "Доход", "Зарплата", financeManager.GetMonthlyCashflow(), 0);
-                MessageBox.Show($"ДЕНЬ ЗАРПЛАТЫ!\nЧистый доход: {financeManager.GetMonthlyCashflow()} руб.", "Фин. отчет");
+                DatabaseManager.LogRandomEvent(sessionId, month, "Income", "Зарплата", financeManager.GetMonthlyCashflow(), 0);
+                MessageBox.Show($"ДЕНЬ ЗАРПЛАТЫ!\nВаш чистый доход: {financeManager.GetMonthlyCashflow()} руб.\n" +
+                                $"Теперь ваш баланс: {currentPlayer.Cash} руб.", "Фин. отчет");
             }
 
-            DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month);
+            // Обновляем UI, чтобы игрок сразу видел изменения в Cash и PassiveIncome
             UpdateUI();
+
+            // Проверка на банкротство
+            if (currentPlayer.Cash < -10000)
+            {
+                button1.Enabled = false;
+                this.KeyDown -= Form1_KeyDown;
+
+                // Сохраняем финальное состояние банкротства
+                DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month, cellIndex);
+                return;
+            }
+
+            // Одиночное финальное сохранение для "живого" игрока
+            DatabaseManager.SaveSession(1, currentPlayer.Cash, currentPlayer.PassiveIncome, month, cellIndex);
         }
 
         private void CreateCustomLabels()
@@ -229,27 +251,55 @@ namespace FinancialLiteracyGame
 
         private void UpdateUI()
         {
-            if (currentPlayer != null)
+            if (currentPlayer == null) return;
+
+            // 1. Обновляем основные показатели
+            lblCash.Text = $"Наличные: {currentPlayer.Cash:N0} руб.";
+            lblPassiveIncome.Text = $"Пассивный доход: {currentPlayer.PassiveIncome:N0} руб.";
+            lblExpenses.Text = $"Расходы: {currentPlayer.Expenses:N0} руб.";
+            lblSalary.Text = $"Зарплата: {currentPlayer.Salary:N0} руб.";
+            gbProfession.Text = $"Профессия: {currentPlayer.Profession}";
+
+            // Подсветка дохода (зеленый, если есть инвестиции)
+            lblPassiveIncome.ForeColor = currentPlayer.PassiveIncome > 0 ? Color.DarkGreen : Color.Black;
+
+            // 2. Расчет прогресса (исправлено деление)
+            // Используем decimal для точности, прежде чем перевести в double для отображения
+            decimal progressPercent = 0;
+            if (currentPlayer.Expenses > 0)
             {
-                lblCash.Text = $"Наличные: {currentPlayer.Cash:N0} руб.";
-                lblPassiveIncome.Text = $"Пасс. доход: {currentPlayer.PassiveIncome:N0} руб.";
-                lblExpenses.Text = $"Расходы: {currentPlayer.Expenses:N0} руб.";
-                lblSalary.Text = $"Зарплата: {currentPlayer.Salary:N0} руб.";
-                gbProfession.Text = $"Профессия: {currentPlayer.Profession}";
-                lblPassiveIncome.ForeColor = currentPlayer.PassiveIncome > 0 ? Color.DarkGreen : Color.Black;
+                progressPercent = (currentPlayer.PassiveIncome / (currentPlayer.Expenses * 1.2m)) * 100;
             }
+
+            // Ограничиваем прогресс 100%, чтобы не пугать игрока цифрами 200%
+            double displayProgress = Math.Min(100, (double)progressPercent);
+            gbStats.Text = $"Статистика (Свобода: {displayProgress:F0}%)";
+
+            // 3. Проверка на банкротство
             if (currentPlayer.Cash < -10000)
             {
-                MessageBox.Show("К сожалению, вы объявили себя банкротом. Попробуйте пересмотреть свою финансовую стратегию!", "Игра окончена");
-                // Логика сброса игры или выхода
-            }
-            double progress = (double)(currentPlayer.PassiveIncome / currentPlayer.Expenses) * 100;
-            // Можно вывести это в заголовок GroupBox или отдельную метку
-            gbStats.Text = $"Статистика (Цель: {progress:F0}%)";
+                button1.Enabled = false;
+                lblCash.ForeColor = Color.Red;
 
+                MessageBox.Show(
+                    "Вы банкрот! Долги превысили 10,000 руб.",
+                    "Игра окончена",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Stop
+                );
+                return; // Дальше проверять победу нет смысла
+            }
+
+            // 4. Проверка условия победы (из твоего FinanceManager)
             if (financeManager.IsFinancialIndependent())
             {
-                MessageBox.Show("Победа! Ваши доходы превысили расходы!", "ПОБЕДА");
+                button1.Enabled = false; // Останавливаем игру
+                MessageBox.Show(
+                    "ПОЗДРАВЛЯЕМ!\nВы достигли финансовой независимости.\nВаш пассивный доход покрывает расходы с запасом 20%!",
+                    "ПОБЕДА",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
             }
         }
 
@@ -271,6 +321,47 @@ namespace FinancialLiteracyGame
                 case Keys.A: game3D?.RotateBoard(-step); break;
                 case Keys.D: game3D?.RotateBoard(step); break;
             }
+        }
+
+        private void btnNewGame_Click_Click(object sender, EventArgs e)
+        {
+            var result = MessageBox.Show("Вы уверены, что хотите начать новую игру? Текущий прогресс будет потерян.",
+                                 "Новая игра", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                ResetGame();
+            }
+        }
+        private void ResetGame()
+        {
+            // 1. Инициализируем стартовые параметры в БД
+            // (Позже здесь будет вызов формы выбора профессии)
+            DatabaseManager.CreateNewSession(1, "Алексей", "Программист", 50000, 30000, 10000);
+
+            // 2. Обнуляем локальные объекты
+            currentPlayer = new Player
+            {
+                Name = "Алексей",
+                Profession = "Программист",
+                Salary = 50000,
+                Expenses = 30000,
+                Cash = 10000,
+                PassiveIncome = 0
+            };
+
+            financeManager = new FinanceManager(currentPlayer);
+            gameEngine = new GameEngine(currentPlayer);
+            gameEngine.CurrentPosition = 0;
+
+            // 3. Сбрасываем UI и 3D
+            game3D.MovePlayer(0);
+            button1.Enabled = true;
+            lblCash.ForeColor = Color.Black;
+
+            UpdateUI();
+
+            MessageBox.Show("Новая игра начата!", "Успех");
         }
     }
 }

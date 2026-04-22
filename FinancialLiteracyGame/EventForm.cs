@@ -45,8 +45,8 @@ namespace FinancialLiteracyGame
 
         private void btnAction_Click_1(object sender, EventArgs e)
         {
-            IsConfirmed = false;
-            this.DialogResult = DialogResult.Cancel; // И эту для кнопки отмены
+            IsConfirmed = true;
+            this.DialogResult = DialogResult.OK; // Важно: устанавливаем OK
             this.Close();
         }
     }

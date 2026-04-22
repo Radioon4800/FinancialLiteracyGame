@@ -37,6 +37,7 @@
             this.button2 = new System.Windows.Forms.Button();
             this.button1 = new System.Windows.Forms.Button();
             this.LeftSide = new System.Windows.Forms.Panel();
+            this.btnNewGame_Click = new System.Windows.Forms.Button();
             this.panel.SuspendLayout();
             this.Action.SuspendLayout();
             this.LeftSide.SuspendLayout();
@@ -68,7 +69,7 @@
             this.panel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel.Location = new System.Drawing.Point(0, 0);
             this.panel.Name = "panel";
-            this.panel.Size = new System.Drawing.Size(800, 450);
+            this.panel.Size = new System.Drawing.Size(1064, 450);
             this.panel.TabIndex = 2;
             // 
             // lblDiceResult
@@ -86,13 +87,14 @@
             this.Action.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.Action.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.Action.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.Action.Controls.Add(this.btnNewGame_Click);
             this.Action.Controls.Add(this.button3);
             this.Action.Controls.Add(this.button2);
             this.Action.Controls.Add(this.button1);
             this.Action.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.Action.Location = new System.Drawing.Point(0, 350);
             this.Action.Name = "Action";
-            this.Action.Size = new System.Drawing.Size(800, 100);
+            this.Action.Size = new System.Drawing.Size(1064, 100);
             this.Action.TabIndex = 0;
             // 
             // button3
@@ -138,11 +140,23 @@
             this.LeftSide.Size = new System.Drawing.Size(214, 332);
             this.LeftSide.TabIndex = 3;
             // 
+            // btnNewGame_Click
+            // 
+            this.btnNewGame_Click.AutoSize = true;
+            this.btnNewGame_Click.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnNewGame_Click.Location = new System.Drawing.Point(797, 0);
+            this.btnNewGame_Click.Name = "btnNewGame_Click";
+            this.btnNewGame_Click.Size = new System.Drawing.Size(264, 96);
+            this.btnNewGame_Click.TabIndex = 3;
+            this.btnNewGame_Click.Text = "Новая игра";
+            this.btnNewGame_Click.UseVisualStyleBackColor = true;
+            this.btnNewGame_Click.Click += new System.EventHandler(this.btnNewGame_Click_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
+            this.ClientSize = new System.Drawing.Size(1064, 450);
             this.Controls.Add(this.Action);
             this.Controls.Add(this.LeftSide);
             this.Controls.Add(this.panel);
@@ -168,6 +182,7 @@
         private System.Windows.Forms.Button button2;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Label lblDiceResult;
+        private System.Windows.Forms.Button btnNewGame_Click;
     }
 }
 
